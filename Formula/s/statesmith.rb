@@ -4,6 +4,7 @@ class Statesmith < Formula
   url "https://github.com/StateSmith/StateSmith/archive/refs/tags/cli-v0.19.0.tar.gz"
   sha256 "62eb44d15a978c82f1ad8a54506f750b76c3dd30ebd1087384366a939a118749"
   license "Apache-2.0"
+  revision 1
 
   bottle do
     sha256 cellar: :any_skip_relocation, arm64_tahoe:   "f9c19f657fbff70ad690d5b0910ab9b55559514f24f76661f078799f823f1a07"
@@ -15,12 +16,12 @@ class Statesmith < Formula
     sha256 cellar: :any_skip_relocation, x86_64_linux:  "a80deb05098101d193abbaa92c8113e7a7cb150dcbaecaccd58c4bc2f3836912"
   end
 
-  depends_on "dotnet"
-  depends_on "icu4c@77"
+  depends_on "dotnet@9"
+  depends_on "icu4c@78"
   uses_from_macos "zlib"
 
   def install
-    dotnet = Formula["dotnet"]
+    dotnet = Formula["dotnet@9"]
     args = %W[
       -c Release
       --framework net#{dotnet.version.major_minor}
