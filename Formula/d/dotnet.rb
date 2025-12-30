@@ -83,6 +83,7 @@ class Dotnet < Formula
     # Fix `unbound variable` error if an array is empty:
     # ./prep-source-build.sh: line 254: positional_args[@]: unbound variable
     inreplace "prep-source-build.sh", '"${positional_args[@]}"', '"${positional_args[@]:-}"'
+
     if OS.mac?
       # Need GNU grep (Perl regexp support) to use release manifest rather than git repo
       ENV.prepend_path "PATH", Formula["grep"].libexec/"gnubin"
@@ -90,6 +91,17 @@ class Dotnet < Formula
       # Avoid mixing CLT and Xcode.app when building CoreCLR component which can
       # cause undefined symbols, e.g. __swift_FORCE_LOAD_$_swift_Builtin_float
       ENV["SDKROOT"] = MacOS.sdk_path
+
+      # Skip installer build on macOS - prevents CreatePkg target errors
+      # See: https://github.com/dotnet/source-build/issues/5286
+      inreplace "src/runtime/Directory.Build.props" do |s|
+        s.gsub! "</Project>",
+                "<PropertyGroup>\n    <SkipInstallerBuild>true</SkipInstallerBuild>\n  </PropertyGroup>\n</Project>"
+      end
+      inreplace "src/aspnetcore/Directory.Build.props" do |s|
+        s.gsub! "</Project>",
+                "<PropertyGroup>\n    <SkipInstallerBuild>true</SkipInstallerBuild>\n  </PropertyGroup>\n</Project>"
+      end
     else
       icu4c_dep = deps.find { |dep| dep.name.match?(/^icu4c(@\d+)?$/) }
       ENV.append_path "LD_LIBRARY_PATH", icu4c_dep.to_formula.opt_lib
@@ -102,21 +114,10 @@ class Dotnet < Formula
       buildpath.install resource("release.json")
     end
 
-    # On macOS, remove BeforeTargets="CreatePkg" from sfxproj files which reference
-    # a non-existent target, causing "MSB4057: The target 'CreatePkg' does not exist" errors
-    if OS.mac?
-      inreplace "src/runtime/src/installer/pkg/sfx/installers/dotnet-host.proj",
-                "BeforeTargets=\"CreatePkg\"", ""
-    end
+    args << "-p:PublishReadyToRun=false" if OS.linux? && Hardware::CPU.intel?
 
     system "./prep-source-build.sh"
-
-    # We unset "CI" environment variable to work around aspire build failure
-    # error MSB4057: The target "GitInfo" does not exist in the project.
-    # Ref: https://github.com/Homebrew/homebrew-core/pull/154584#issuecomment-1815575483
-    with_env(CI: nil) do
-      system "./build.sh", *args
-    end
+    system "./build.sh", *args
 
     libexec.mkpath
     tarball = buildpath.glob("artifacts/*/Release/dotnet-sdk-*.tar.gz").first
